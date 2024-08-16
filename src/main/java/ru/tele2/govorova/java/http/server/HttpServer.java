@@ -1,5 +1,8 @@
 package ru.tele2.govorova.java.http.server;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,6 +15,7 @@ public class HttpServer {
     private ExecutorService executorService;
     private ThreadLocal<byte[]> requestBuffer;
     private int DEFAULT_BUFFER_SIZE = 8192;
+    private static final Logger logger = LogManager.getLogger(HttpServer.class);
 
     public HttpServer(int port) {
         this.port = port;
@@ -22,13 +26,13 @@ public class HttpServer {
         executorService = Executors.newFixedThreadPool(5);
         requestBuffer = ThreadLocal.withInitial(() -> new byte[DEFAULT_BUFFER_SIZE]);
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Сервер запущен на порту: " + port);
+            logger.info("Сервер запущен на порту: ", port);
             while (true) {
                 Socket socket = serverSocket.accept();
                 executorService.execute(() -> executeRequest(socket));
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Wrong server action.", e);
         } finally {
             executorService.shutdown();
         }
@@ -41,19 +45,19 @@ public class HttpServer {
             if (n > 0) {
                 String rawRequest = new String(buffer, 0, n);
                 HttpRequest request = new HttpRequest(rawRequest);
-                request.printInfo(true);
+                request.printInfo();
                 dispatcher.execute(request, socket.getOutputStream());
                 socket.getOutputStream().flush();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Error while processing request.", e);
         } finally {
             try {
                 if (socket != null) {
                     socket.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("Socket close error", e);
             }
         }
     }
